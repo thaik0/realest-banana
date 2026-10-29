@@ -1,0 +1,34 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const source = fs.readFileSync('app/app.js','utf8');
+// Exercise the real persistence and dashboard functions without booting the UI.
+const code = source.slice(source.indexOf("const ZKEY="), source.indexOf('function renderHeat()'));
+const elements = {'#zetamac-stats':{}, '#zetamac-chart':{}};
+const storage = new Map();
+const listeners = {};
+let renders=0;
+const ctx = {localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},window:{addEventListener:(n,f)=>listeners[n]=f,postMessage(){}},location:{origin:'http://localhost'},$:s=>elements[s],render:()=>renders++,empty:(a,b)=>a+b,fmt:d=>new Date(d).toLocaleDateString('en-US'),esc:String,Date,Number,Math,Set,JSON,Array};
+vm.createContext(ctx); vm.runInContext(code,ctx);
+const games = Array.from({length:12},(_,i)=>({id:String(i),score:i+1,timestamp:new Date(2026,0,i+1,12).toISOString(),duration:120,source:'zetamac'}));
+const deliver=sessions=>listeners.message({source:ctx.window,origin:ctx.location.origin,data:{type:'quant-tracker-zetamac-sessions',sessions}});
+deliver(games); deliver(games);
+assert.equal(JSON.parse(storage.get('quant-tracker-zetamac-v1')).length,12);
+assert.equal(renders,1);
+vm.runInContext('renderZetamac()',ctx);
+assert.match(elements['#zetamac-stats'].innerHTML,/Personal best[\s\S]*?<strong>12<\/strong>/);
+assert.match(elements['#zetamac-stats'].innerHTML,/Last 10 average[\s\S]*?<strong>7\.5<\/strong>/);
+assert.match(elements['#zetamac-stats'].innerHTML,/Games played[\s\S]*?<strong>12<\/strong>/);
+assert.match(elements['#zetamac-stats'].innerHTML,/Total practice time[\s\S]*?<strong>24 min<\/strong>/);
+assert.match(elements['#zetamac-chart'].innerHTML, /polyline/);
+// Reload from stored data.
+vm.runInContext(code,vm.createContext({...ctx,window:{addEventListener(){},postMessage(){}}}));
+console.log('Session deduplication, persistence, statistics and chart: OK');
+const gameCode=fs.readFileSync('extension/game.js','utf8');
+let callback, messages=[];
+const left={textContent:'Seconds left: 120'}, score={textContent:'Score: 42'}, end={querySelector:()=>score,visible:false};
+const gameCtx={crypto:{randomUUID:()=> 'game-id'},document:{querySelector:s=>s==='#game .left'?left:s==='#game .end'?end:null,documentElement:{}},getComputedStyle:el=>({display:el.visible?'block':'none',visibility:'visible'}),MutationObserver:class{constructor(cb){callback=cb}observe(){}},chrome:{runtime:{sendMessage:m=>{messages.push(m);return Promise.resolve({ok:true})}}},Date,Number};
+vm.runInNewContext(gameCode,gameCtx);
+left.textContent='Seconds left: -1'; end.visible=true; callback(); callback();
+assert.equal(messages.length,1); assert.equal(messages[0].session.score,42); assert.equal(messages[0].session.duration,120);
+console.log('Completed results transition creates exactly one session: OK');
