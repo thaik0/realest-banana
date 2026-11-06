@@ -1,6 +1,6 @@
 # QuantGuide Prep Tracker
 
-A personal tracker for QuantGuide attempts. The static app is in `app/`; serve that directory with any static web server. Attempts are stored in the browser's local storage.
+A personal tracker for QuantGuide attempts. The deployed, account-backed app is in `site/`; it uses ChatGPT Sites authentication and a Cloudflare D1 database. The legacy static files in `app/` are retained for reference and do not provide the account-backed service. The local recovery JSON is private and is not included in this repository.
 
 ## Zetamac automatic tracking
 

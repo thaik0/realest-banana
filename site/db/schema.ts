@@ -1,0 +1,7 @@
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+
+export const trackerData = sqliteTable('tracker_data', {
+  userId: text('user_id').primaryKey(),
+  payload: text('payload').notNull(),
+  revision: integer('revision').notNull().default(1),
+});
